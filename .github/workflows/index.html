@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Movement</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    #viewer-count {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewer-count">Viewers: 0</div>
+  <canvas id="cloudCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('cloudCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let cloudX = canvas.width / 2;
+    let cloudY = canvas.height / 2;
+    const cloudRadius = 50;
+
+    // WebSocket setup
+    const socket = new WebSocket(`wss://${window.location.host}`);
+    socket.onopen = () => console.log('WebSocket connection established');
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'position') {
+        cloudX = data.x;
+        cloudY = data.y;
+      } else if (data.type === 'viewers') {
+        document.getElementById('viewer-count').textContent = `Viewers: ${data.count}`;
+      }
+    };
+
+    // Draw cloud
+    function drawCloud(x, y) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.arc(x, y, cloudRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'lightblue';
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    // Handle arrow key movement
+    document.addEventListener('keydown', (event) => {
+      const step = 10;
+      if (event.key === 'ArrowUp') cloudY -= step;
+      if (event.key === 'ArrowDown') cloudY += step;
+      if (event.key === 'ArrowLeft') cloudX -= step;
+      if (event.key === 'ArrowRight') cloudX += step;
+
+      // Send updated position to server
+      socket.send(JSON.stringify({ type: 'position', x: cloudX, y: cloudY }));
+      drawCloud(cloudX, cloudY);
+    });
+
+    // Initial draw
+    drawCloud(cloudX, cloudY);
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drawCloud(cloudX, cloudY);
+    });
+  </script>
+</body>
+</html>
